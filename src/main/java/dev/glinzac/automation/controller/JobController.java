@@ -3,6 +3,7 @@ package dev.glinzac.automation.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -26,6 +27,11 @@ public class JobController {
 	@RequestMapping(method = RequestMethod.POST, value = "/jobs/getColumnNames")
 	public List<String> getColumnDetails(@RequestBody JobTemplateModel job ){
 		return mainService.getColumnNames(job.getDbName(), job.getQueryString());
+	}
+	
+	@RequestMapping(method = RequestMethod.GET,value= "/jobs/createJob/{sec}")
+	public String createJobInstance(@PathVariable String sec) {
+		return mainService.createJobInstance(sec);
 	}
 	
 

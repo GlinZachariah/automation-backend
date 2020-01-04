@@ -1,6 +1,17 @@
 package dev.glinzac.automation;
 
+import org.quartz.CronScheduleBuilder;
+import org.quartz.JobBuilder;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.Trigger;
+import org.quartz.TriggerBuilder;
+import org.quartz.impl.StdSchedulerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -9,10 +20,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
 import dev.glinzac.automation.entities.DatabaseEntity;
+import dev.glinzac.automation.quartz.QuartzJob;
 import dev.glinzac.automation.repository.DatabaseRepository;
 
 @Service
@@ -20,6 +33,10 @@ public class MainService {
 	
 	@Autowired
 	DatabaseRepository dbRepo;
+	
+
+	
+	
 	
 	static ResultSet resultSet = null;
 	static List<String> columnNames = null;
@@ -186,6 +203,7 @@ public class MainService {
 						columnNames.add(resultSetMetaData.getColumnName(i));
 					}
 					statement.close();
+//					createJobInstance();
 					return columnNames;
 				} catch (SQLException e) {
 					e.printStackTrace();
@@ -210,6 +228,64 @@ public class MainService {
 			}
 		}
 		return new ArrayList<String>();
+	}
+	
+	
+	public String createJobInstance(String sec) {
+		System.out.println("Create Job Instance called");
+		Scheduler scheduler;
+		try {
+			scheduler = StdSchedulerFactory.getDefaultScheduler();
+			scheduler.start();
+			System.out.println("The scheduler context is : "+scheduler.getSchedulerInstanceId());
+			JobDetail jobDetails=createJobDetails();
+			Trigger trigger  = buildJobTrigger(jobDetails, "	1/"+sec+" * * * * ? * ");
+			scheduler.scheduleJob(jobDetails, trigger);
+		} catch (SchedulerException e) {
+			e.printStackTrace();
+		}
+		return "Working";
+	}
+	
+	public JobDetail createJobDetails() {
+		JobDataMap jobDataMap = new JobDataMap();
+
+        jobDataMap.put("email", "glinzac@gmail.com");
+        jobDataMap.put("subject", "SET");
+        jobDataMap.put("body", "Working");
+        System.out.println("Job Details Working");
+        return JobBuilder.newJob(QuartzJob.class)
+                .withIdentity(UUID.randomUUID().toString(), "email-jobs")
+                .withDescription("Send Email Job")
+                .usingJobData(jobDataMap)
+                .storeDurably()
+                .build();
+	}
+	
+	
+	public Trigger buildJobTrigger(JobDetail jobDetail,String cronSchedule) {
+		System.out.println("Trigger working");
+        return TriggerBuilder.newTrigger()
+                .forJob(jobDetail)
+                .withIdentity(jobDetail.getKey().getName(), "job-triggers")
+                .withDescription("Job Trigger")
+                .withSchedule(CronScheduleBuilder.cronSchedule(cronSchedule))
+                .build();
+    }
+
+	public List<String> getJobInstance() {
+		Scheduler scheduler;
+		try {
+			scheduler = StdSchedulerFactory.getDefaultScheduler();
+			System.out.println("The scheduler context is : "+scheduler.getSchedulerInstanceId());
+			scheduler.getCurrentlyExecutingJobs().forEach((val)->{
+				System.out.println("val : "+val);
+			});
+		} catch (SchedulerException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return new ArrayList();
 	}
 	
 }
