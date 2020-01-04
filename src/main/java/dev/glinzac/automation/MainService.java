@@ -4,12 +4,16 @@ import org.quartz.CronScheduleBuilder;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import org.quartz.impl.StdSchedulerFactory;
+import org.quartz.impl.matchers.GroupMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.annotation.Async;
 
 import java.sql.Connection;
@@ -19,13 +23,15 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
 import dev.glinzac.automation.entities.DatabaseEntity;
-import dev.glinzac.automation.quartz.QuartzJob;
+import dev.glinzac.automation.quartz.CustomQuartzJob;
+import dev.glinzac.automation.quartz.CustomQuartzJobBean;
 import dev.glinzac.automation.repository.DatabaseRepository;
 
 @Service
@@ -34,8 +40,10 @@ public class MainService {
 	@Autowired
 	DatabaseRepository dbRepo;
 	
-
+	@Autowired
+	ApplicationContext applicationContext;
 	
+	static CustomQuartzJobBean customJobBean;
 	
 	
 	static ResultSet resultSet = null;
@@ -233,59 +241,55 @@ public class MainService {
 	
 	public String createJobInstance(String sec) {
 		System.out.println("Create Job Instance called");
-		Scheduler scheduler;
+		customJobBean = applicationContext.getBean(CustomQuartzJobBean.class);
+		JobDetail jobDetail = customJobBean.createJobDetails();
+		Trigger jobTrigger = customJobBean.buildJobTrigger(jobDetail, "	1/"+sec+" * * * * ? * ");
 		try {
-			scheduler = StdSchedulerFactory.getDefaultScheduler();
-			scheduler.start();
-			System.out.println("The scheduler context is : "+scheduler.getSchedulerInstanceId());
-			JobDetail jobDetails=createJobDetails();
-			Trigger trigger  = buildJobTrigger(jobDetails, "	1/"+sec+" * * * * ? * ");
-			scheduler.scheduleJob(jobDetails, trigger);
+			customJobBean.scheduler(jobTrigger, jobDetail, customJobBean.scheduleJob());
 		} catch (SchedulerException e) {
 			e.printStackTrace();
 		}
 		return "Working";
 	}
 	
-	public JobDetail createJobDetails() {
-		JobDataMap jobDataMap = new JobDataMap();
-
-        jobDataMap.put("email", "glinzac@gmail.com");
-        jobDataMap.put("subject", "SET");
-        jobDataMap.put("body", "Working");
-        System.out.println("Job Details Working");
-        return JobBuilder.newJob(QuartzJob.class)
-                .withIdentity(UUID.randomUUID().toString(), "email-jobs")
-                .withDescription("Send Email Job")
-                .usingJobData(jobDataMap)
-                .storeDurably()
-                .build();
-	}
 	
 	
-	public Trigger buildJobTrigger(JobDetail jobDetail,String cronSchedule) {
-		System.out.println("Trigger working");
-        return TriggerBuilder.newTrigger()
-                .forJob(jobDetail)
-                .withIdentity(jobDetail.getKey().getName(), "job-triggers")
-                .withDescription("Job Trigger")
-                .withSchedule(CronScheduleBuilder.cronSchedule(cronSchedule))
-                .build();
-    }
 
 	public List<String> getJobInstance() {
-		Scheduler scheduler;
 		try {
-			scheduler = StdSchedulerFactory.getDefaultScheduler();
-			System.out.println("The scheduler context is : "+scheduler.getSchedulerInstanceId());
-			scheduler.getCurrentlyExecutingJobs().forEach((val)->{
-				System.out.println("val : "+val);
-			});
+			Scheduler scheduler = customJobBean.scheduleJob().getScheduler();
+			System.out.println("Scheduler Name is : " +customJobBean.scheduleJob().getScheduler().getSchedulerName());
+			for (String groupName : scheduler.getJobGroupNames()) {
+
+			     for (JobKey jobKey : scheduler.getJobKeys(GroupMatcher.jobGroupEquals(groupName))) {
+							
+				  String jobName = jobKey.getName();
+				  String jobGroup = jobKey.getGroup();
+							
+				  //get job's trigger
+				  List<Trigger> triggers = (List<Trigger>) scheduler.getTriggersOfJob(jobKey);
+				  Date nextFireTime = triggers.get(0).getNextFireTime(); 
+
+					System.out.println("[jobName] : " + jobName + " [groupName] : "
+						+ jobGroup + " - " + nextFireTime);
+
+				  }
+
+			    }
 		} catch (SchedulerException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return new ArrayList();
+	}
+
+//  TODO Perform Job action run query, send mail from details in JobDataMap
+	public void executeJob(JobExecutionContext context) {
+		JobDataMap jobDataMap = context.getMergedJobDataMap();
+        String subject = jobDataMap.getString("subject");
+        String body = jobDataMap.getString("body");
+        String recipientEmail = jobDataMap.getString("email");
+        System.out.println("The subject is "+subject+" : "+body+" : "+recipientEmail);	
 	}
 	
 }
