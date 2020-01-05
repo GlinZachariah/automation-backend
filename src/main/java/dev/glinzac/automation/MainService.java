@@ -30,6 +30,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 import dev.glinzac.automation.entities.DatabaseEntity;
+import dev.glinzac.automation.quartz.CronExpressionGenerator;
 import dev.glinzac.automation.quartz.CustomQuartzJob;
 import dev.glinzac.automation.quartz.CustomQuartzJobBean;
 import dev.glinzac.automation.repository.DatabaseRepository;
@@ -43,7 +44,11 @@ public class MainService {
 	@Autowired
 	ApplicationContext applicationContext;
 	
-	static CustomQuartzJobBean customJobBean;
+	@Autowired
+	CustomQuartzJobBean customJobBean;
+	
+	@Autowired
+	CronExpressionGenerator cronGenerator;
 	
 	
 	static ResultSet resultSet = null;
@@ -238,10 +243,10 @@ public class MainService {
 		return new ArrayList<String>();
 	}
 	
-	
+//	Accept JobDetail and Save it=> convert into cron expression
 	public String createJobInstance(String sec) {
 		System.out.println("Create Job Instance called");
-		customJobBean = applicationContext.getBean(CustomQuartzJobBean.class);
+//		customJobBean = applicationContext.getBean(CustomQuartzJobBean.class);
 		JobDetail jobDetail = customJobBean.createJobDetails();
 		Trigger jobTrigger = customJobBean.buildJobTrigger(jobDetail, "	1/"+sec+" * * * * ? * ");
 		try {
@@ -256,9 +261,10 @@ public class MainService {
 	
 
 	public List<String> getJobInstance() {
+//		customJobBean =customJobBean = applicationContext.getBean(CustomQuartzJobBean.class);
 		try {
 			Scheduler scheduler = customJobBean.scheduleJob().getScheduler();
-			System.out.println("Scheduler Name is : " +customJobBean.scheduleJob().getScheduler().getSchedulerName());
+			System.out.println("Scheduler Name is : " +scheduler.getSchedulerName());
 			for (String groupName : scheduler.getJobGroupNames()) {
 
 			     for (JobKey jobKey : scheduler.getJobKeys(GroupMatcher.jobGroupEquals(groupName))) {
@@ -282,8 +288,26 @@ public class MainService {
 		}
 		return new ArrayList();
 	}
+	
+	public void stopAllJobs() {
+//		customJobBean = customJobBean = applicationContext.getBean(CustomQuartzJobBean.class);
+		Scheduler scheduler = customJobBean.scheduleJob().getScheduler();
+		System.out.println("Job Deletion process");
+		try {
+			for (JobKey jobKey : scheduler.getJobKeys(GroupMatcher.jobGroupEquals("job-details"))) {
+				System.out.println("Job Deleted : "+jobKey.getName());
+//				scheduler.interrupt(jobKey);
+				scheduler.deleteJob(jobKey);
+			}
+		} catch (SchedulerException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 
 //  TODO Perform Job action run query, send mail from details in JobDataMap
+	
+	@Async
 	public void executeJob(JobExecutionContext context) {
 		JobDataMap jobDataMap = context.getMergedJobDataMap();
         String subject = jobDataMap.getString("subject");

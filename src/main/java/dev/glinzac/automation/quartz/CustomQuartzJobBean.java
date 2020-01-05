@@ -46,6 +46,20 @@ public class CustomQuartzJobBean{
 		Properties properties = new Properties();
         properties.setProperty("org.quartz.scheduler.instanceName", "MyQuartzInstance");
         properties.setProperty("org.quartz.scheduler.instanceId", "CUSTOM_INSTANCE");
+        properties.setProperty("org.quartz.threadPool.class", "org.quartz.simpl.SimpleThreadPool");
+        properties.setProperty("org.quartz.threadPool.threadCount", "20");
+        properties.setProperty("org.quartz.jobStore.class", "org.quartz.impl.jdbcjobstore.JobStoreTX");
+        properties.setProperty("org.quartz.jobStore.driverDelegateClass", " org.quartz.impl.jdbcjobstore.StdJDBCDelegate");
+//        properties.setProperty("org.quartz.jobStore.class", "org.quartz.simpl.RAMJobStore");
+        properties.setProperty("org.quartz.jobStore.dataSource", "automation");
+        properties.setProperty("org.quartz.jobStore.misfireThreshold", "25000");
+        
+        properties.setProperty("org.quartz.dataSource.automation.driver", "com.mysql.jdbc.Driver");
+        properties.setProperty("org.quartz.dataSource.automation.URL", "jdbc:mysql://localhost:3306/automation");
+        properties.setProperty("org.quartz.dataSource.automation.user", "root");
+        properties.setProperty("org.quartz.dataSource.automation.password", "root");
+//        properties.setProperty("org.quartz.dataSource.automation.maxConnections ", "20");
+        
         
         schedulerFactory.setQuartzProperties(properties);
         schedulerFactory.setJobFactory(springBeanJobFactory());
@@ -73,18 +87,13 @@ public class CustomQuartzJobBean{
         jobDataMap.put("body", "Working");
         System.out.println("Job Details Working");
         return JobBuilder.newJob(CustomQuartzJob.class)
-                .withIdentity(UUID.randomUUID().toString(), "email-jobs")
+                .withIdentity(UUID.randomUUID().toString(), "job-details")
                 .withDescription("Send Email Job")
                 .usingJobData(jobDataMap)
-                .storeDurably()
+                .storeDurably(true)
+                .requestRecovery(true)
                 .build();
 	}
-	
-//	@Bean
-//	public String getCronJobSchedule() {
-//		return "1/10 * * * * ? * ";
-//	}
-	
 	
 	
 	public Trigger buildJobTrigger(JobDetail jobDetail,String cronSchedule) {

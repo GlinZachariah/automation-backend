@@ -20,4 +20,11 @@ public class MonitorController {
 	public List<String> createJobInstance() {
 		return mainService.getJobInstance();
 	}
+	
+	@RequestMapping(method = RequestMethod.GET,value= "/monitor/stopAllJobs")
+	public void stopAllJobInstance() {
+		mainService.stopAllJobs();
+	}
+	
+	
 }
